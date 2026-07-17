@@ -4,6 +4,7 @@
 # 用法:
 #   coli-ssd build    --ssd /mnt/myssd [--src /path/to/colibri]   构建并装配引擎到 SSD
 #   coli-ssd download --ssd /mnt/myssd [--repo USER/X]            下载 370GB 模型（断点续传）
+#   coli-ssd webui    --ssd /mnt/myssd [--src /path/to/colibri]   预构建浏览器界面（可选）
 #   coli-ssd verify   --ssd /mnt/myssd                            校验模型完整性
 #   coli-ssd bench    --ssd /mnt/myssd                            实测盘速并给出判定
 #   coli-ssd doctor   --ssd /mnt/myssd                            一键总检（引擎+模型+盘速）
@@ -17,7 +18,7 @@ HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
 
-[ $# -ge 1 ] || { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+[ $# -ge 1 ] || { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 CMD="$1"; shift
 
 ssd_of() { # 从剩余参数里抠 --ssd
@@ -30,6 +31,7 @@ ssd_of() { # 从剩余参数里抠 --ssd
 case "$CMD" in
   build)    exec "$HERE/build_engine.sh" "$@" ;;
   download) exec "$HERE/download_model.sh" "$@" ;;
+  webui)    exec "$HERE/build_webui.sh" "$@" ;;
   bench)    exec "$HERE/iobench_check.sh" "$@" ;;
   verify)
     SSD="$(ssd_of "$@")"
@@ -57,5 +59,5 @@ case "$CMD" in
     fi
     [ "$RC" -eq 0 ] && ok "总检通过 — 可以 ./start.sh" || die "总检未完全通过，按上面提示修复"
     ;;
-  *) die "未知命令: $CMD（build/download/verify/bench/doctor）" ;;
+  *) die "未知命令: $CMD（build/download/webui/verify/bench/doctor）" ;;
 esac

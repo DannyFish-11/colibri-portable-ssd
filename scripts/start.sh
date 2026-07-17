@@ -5,6 +5,7 @@
 #     ./start.sh                # 交互聊天（默认）
 #     ./start.sh run "提示词"    # 单次生成
 #     ./start.sh serve          # OpenAI 兼容 API
+#     ./start.sh ui             # 浏览器界面（API + Web UI + 自动开浏览器）
 #     ./start.sh plan / doctor  # 资源规划 / 体检
 #     ./start.sh --readonly     # 纯只读模式（KVSAVE=0，不向 SSD 写任何状态）
 #     ./start.sh --bench        # 先测这块盘在这台机器上的真实速度
@@ -31,7 +32,7 @@ while [ $# -gt 0 ]; do
     --readonly|--ro) READONLY=1; shift ;;
     --bench)         DO_BENCH=1; shift ;;
     -h|--help)
-      sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) ARGS+=("$1"); shift ;;
   esac
@@ -100,6 +101,17 @@ PLAT_NOTE=""
 case "$PLATFORM" in darwin-*) PLAT_NOTE="（macOS: 如遇 Gatekeeper 拦截，先运行 xattr -dr com.apple.quarantine \"$ROOT\"）" ;; esac
 info "平台 $PLATFORM | 模型 $MODEL_DIR $PLAT_NOTE"
 [ "$READONLY" -eq 1 ] || info "提示：./start.sh --readonly 可全程不写 SSD；用完正常退出后即可安全拔出。"
+
+# ---------- 浏览器界面快捷方式 ----------
+# ./start.sh ui = 启动 API + 托管 Web UI + 自动开浏览器
+if [ "${ARGS[0]}" = "ui" ]; then
+  WEBUI="$ROOT/webui"
+  [ -f "$WEBUI/index.html" ] || die "Web UI 未构建（$WEBUI 缺 index.html）。
+       在有 node/npm 的制作机上运行: scripts/build_webui.sh --ssd \"$ROOT\""
+  RO_FLAG=()
+  [ "$READONLY" -eq 1 ] && RO_FLAG=(--readonly)
+  exec python3 "$SRC/serve_ui.py" --engine "$ENGINE" --model "$MODEL_DIR" --webui "$WEBUI" "${RO_FLAG[@]}"
+fi
 
 # ---------- 启动 ----------
 # noexec 挂载探测（Linux）：外置盘若被 noexec 挂载，引擎二进制将无法执行

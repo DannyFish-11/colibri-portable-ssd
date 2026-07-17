@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # lib.sh — colibri-portable-ssd 公共函数库
 # 被 start.sh / coli-ssd / 各脚本 source。只定义函数与变量，不执行动作。
 

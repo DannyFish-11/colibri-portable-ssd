@@ -9,6 +9,7 @@
 #   <SSD>/engine/<platform>/{coli, glm, *.py, tools/, ...}   运行时引擎（原地可运行布局）
 #   <SSD>/bin/iobench                                        盘速测试工具
 #   <SSD>/start.sh <SSD>/start.bat <SSD>/scripts/lib.sh ...  启动器与脚本
+#   <SSD>/gui/colibri_ssd.py                                 图形启动器
 #   <SSD>/model/                                             模型占位目录
 #
 # 上游许可证: Apache-2.0（随引擎附带 LICENSE 与来源声明）。
@@ -103,7 +104,13 @@ cp "$HERE/start.bat"   "$SSD/start.bat" 2>/dev/null || true
 cp "$HERE/lib.sh"      "$SSD/scripts/"
 cp "$HERE/iobench_check.sh" "$SSD/scripts/" 2>/dev/null || true
 cp "$HERE/verify_model.sh"  "$SSD/scripts/" 2>/dev/null || true
+cp "$HERE/serve_ui.py"      "$SSD/scripts/" 2>/dev/null || true
 chmod +x "$SSD/scripts"/*.sh 2>/dev/null || true
+# GUI 启动器（tkinter 零依赖）
+if [ -d "$REPO_ROOT/gui" ]; then
+  mkdir -p "$SSD/gui"
+  cp "$REPO_ROOT/gui/colibri_ssd.py" "$SSD/gui/"
+fi
 
 cat > "$SSD/README-FIRST.txt" <<'EOF'
 colibri-portable-ssd — 即插即用 AI SSD
@@ -113,6 +120,8 @@ colibri-portable-ssd — 即插即用 AI SSD
    或任意机器上直接运行本盘 scripts/ 里的 download_model.sh。
 2. 每次使用:
      Linux/macOS:  ./start.sh            （./start.sh --readonly 为纯只读模式）
+     浏览器界面:    ./start.sh ui
+     图形启动器:    python3 gui/colibri_ssd.py
      Windows:      start.bat
 3. 用完正常退出聊天，再安全弹出。模型分片全程只读，不会写坏。
 EOF
