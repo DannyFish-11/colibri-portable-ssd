@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# coli-ssd — colibri-portable-ssd 主控命令
+#
+# 用法:
+#   coli-ssd build    --ssd /mnt/myssd [--src /path/to/colibri]   构建并装配引擎到 SSD
+#   coli-ssd download --ssd /mnt/myssd [--repo USER/X]            下载 370GB 模型（断点续传）
+#   coli-ssd verify   --ssd /mnt/myssd                            校验模型完整性
+#   coli-ssd bench    --ssd /mnt/myssd                            实测盘速并给出判定
+#   coli-ssd doctor   --ssd /mnt/myssd                            一键总检（引擎+模型+盘速）
+#
+# 典型流程（在一块插着的空 SSD 上从头开始）:
+#   coli-ssd build --ssd /mnt/myssd && coli-ssd download --ssd /mnt/myssd
+#   以后在任何电脑上: /mnt/myssd/start.sh
+
+set -euo pipefail
+HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib.sh
+. "$HERE/lib.sh"
+
+[ $# -ge 1 ] || { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+CMD="$1"; shift
+
+ssd_of() { # 从剩余参数里抠 --ssd
+  local ssd=""
+  while [ $# -gt 0 ]; do [ "$1" = "--ssd" ] && { ssd="$2"; break; }; shift; done
+  [ -n "$ssd" ] || die "缺少 --ssd <挂载点>"
+  printf '%s' "$ssd"
+}
+
+case "$CMD" in
+  build)    exec "$HERE/build_engine.sh" "$@" ;;
+  download) exec "$HERE/download_model.sh" "$@" ;;
+  bench)    exec "$HERE/iobench_check.sh" "$@" ;;
+  verify)
+    SSD="$(ssd_of "$@")"
+    exec "$HERE/verify_model.sh" --model "$SSD/model/glm52_i4" ;;
+  doctor)
+    SSD="$(ssd_of "$@")"
+    info "==== colibri-portable-ssd 总检: $SSD ===="
+    RC=0
+    # 1. 目录树
+    for d in engine model scripts bin; do
+      [ -d "$SSD/$d" ] && ok "目录 $d/" || { err "缺目录 $d/ — 先跑 coli-ssd build"; RC=1; }
+    done
+    # 2. 引擎（本机平台）
+    P="$(detect_platform 2>/dev/null || echo unknown)"
+    [ -x "$SSD/engine/$P/coli" ] && ok "引擎 $P 就绪" || warn "引擎 $P 未装配（这台机器跑不了，其他平台可能可以）"
+    # 3. 模型
+    if [ -d "$SSD/model/glm52_i4" ]; then
+      "$HERE/verify_model.sh" --model "$SSD/model/glm52_i4" || RC=1
+    else
+      warn "模型未下载 — coli-ssd download --ssd \"$SSD\""; RC=1
+    fi
+    # 4. 盘速（模型存在才测）
+    if [ -d "$SSD/model/glm52_i4" ]; then
+      "$HERE/iobench_check.sh" --ssd "$SSD" || RC=1
+    fi
+    [ "$RC" -eq 0 ] && ok "总检通过 — 可以 ./start.sh" || die "总检未完全通过，按上面提示修复"
+    ;;
+  *) die "未知命令: $CMD（build/download/verify/bench/doctor）" ;;
+esac
