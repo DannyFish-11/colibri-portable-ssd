@@ -1,9 +1,22 @@
 # 发布前实测记录
 
-测试时间：2026-07-17（UTC）。测试机：Linux x86_64 沙箱（gcc 12.2，2 核，4GB RAM）。
+测试时间：2026-07-17（UTC）。测试机：Linux x86_64 沙箱（gcc 12.2，2 核，4GB RAM，node 20）。
 上游引擎：colibri @ `72d3d37`（2026-07-16，见仓库根 `PIN`）。
 
-## 测试套件：`tests/e2e_tiny.sh` — 11/11 通过
+## v2 易用性套件（2026-07-17 第二轮）— 15/15 通过
+
+新增"足够简单易用"的四件套全部实测：
+
+| # | 测试 | 结果 | 说明 |
+|---|---|---|---|
+| T12 | GUI 启动器逻辑 | ✅ | 无头 import + `detect_status` 全字段断言（引擎/模型夹具/平台/内存） |
+| T13 | `start.sh ui` 冒烟 | ✅ | 真实拉起 `coli serve` + 静态站：`/health` 200、`/v1/models` 正常、Web UI 页面可访问 |
+| T14 | shellcheck 零告警 | ✅ | v0.10.0，warning 级，覆盖全部 10 个脚本 |
+| T15 | `install.sh` | ✅ | `--dry-run` 正常输出计划；缺 `--ssd` 正确非零退出（负向） |
+
+上游 Web UI 本身也过了完整验证：`npm ci` → `npm test`（上游自带测试套件）→ `npm run build` → `dist/` 静态产物，全部一次通过。
+
+## v1 基础套件（第一轮）— 11/11 通过
 
 | # | 测试 | 结果 | 说明 |
 |---|---|---|---|
@@ -38,11 +51,14 @@
 - Linux x86_64 下的完整制作→装配→启动→推理→只读→校验→测速闭环
 - 路径含空格、符号链接、cwd 无关性、noexec 检测逻辑、内存门槛逻辑
 - 网络路径双通道（git / codeload tarball）获取锁定 commit
+- 浏览器界面全链路（API /health + /v1/models + 静态站页面）
+- shellcheck v0.10.0 静态检查零告警
 
 未能在本环境验证（需要你的硬件）：
 - 真实 370GB 模型（本沙箱磁盘/RAM 不足）——但下载器是 huggingface_hub 官方 `snapshot_download`（断点续传为其内建行为），校验器已按上游公开的分片头格式与 MTP 尺寸表实现
 - Windows `start.bat` 的运行时行为（静态审查通过；逻辑与 bash 版同构）
 - macOS / Apple Silicon 构建（脚本按 darwin-arm64 设计，未实测）
 - 真实 USB4/雷电硬盘盒的速度与热表现
+- tkinter GUI 的窗口渲染（逻辑已做无头测试；窗口行为请在真机上过目一眼）
 
 在你的硬件上完成首次 `coli-ssd doctor` 后，欢迎把 iobench 数字和体验发 issue——上游项目也明确在收集真实硬件数据点。

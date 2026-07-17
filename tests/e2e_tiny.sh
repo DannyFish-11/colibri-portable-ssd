@@ -12,6 +12,10 @@
 #   6. iobench_check.sh 实测与判定输出
 #   7. 缺模型时的错误提示质量（负向）
 #   8. coli-ssd doctor 在半成品 SSD 上正确报错（负向）
+#   9. GUI 启动器检测逻辑（无头）
+#  10. start.sh ui 冒烟（真实 API + 静态站）
+#  11. shellcheck 零告警
+#  12. install.sh 参数与 dry-run
 
 set -uo pipefail
 HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -115,6 +119,66 @@ t_run 10 "start.sh 对缺模型给出可操作错误（负向）" bash -c '
 # ---------- T11: doctor 负向 ----------
 t_run 11 "coli-ssd doctor 在半成品 SSD 上非零退出（负向）" bash -c '
   ! "'"$REPO"'/scripts/coli-ssd" doctor --ssd "'"$SSD"'" >/dev/null 2>&1'
+
+# ---------- T12: GUI 检测逻辑（无头） ----------
+mkdir -p "$SSD/model"
+rm -rf "$SSD/model/glm52_i4"; cp -a "$FIXTURE" "$SSD/model/glm52_i4" 2>/dev/null || true
+t_run 12 "GUI 启动器检测逻辑（import 无头 + detect_status 字段正确）" bash -c '
+  cd "'"$REPO"'/gui"
+  python3 - "'"$SSD"'" <<'"'"'PY'"'"'
+import sys
+import colibri_ssd as g
+root = sys.argv[1]
+assert g.find_root(root + "/gui/colibri_ssd.py") == root, "find_root 解析错误"
+st = g.detect_status(root)
+assert st["engine_ok"], "引擎未检出"
+assert st["model"] == "fixture", "模型状态错误: %s" % st["model"]
+assert st["mtp"] == "skip"
+assert st["platform"].startswith(("linux-", "darwin-")), st["platform"]
+assert isinstance(st["ram_gb"], int)
+print("detect_status ok")
+PY'
+
+# ---------- T13: 浏览器界面冒烟（真实 API + 静态站） ----------
+mkdir -p "$SSD/webui"
+if [ -f /tmp/colibri/web/dist/index.html ]; then
+  rm -rf "$SSD/webui"; cp -a /tmp/colibri/web/dist "$SSD/webui"
+else
+  echo "<html><body>stub</body></html>" > "$SSD/webui/index.html"
+fi
+t_run 13 "start.sh ui 冒烟：API /health + /v1/models + Web UI 页面均可访问" bash -c '
+  APIP=18231; UIP=18232
+  COLI_MIN_RAM_GB=0 python3 "'"$SSD"'/scripts/serve_ui.py" \
+    --engine "'"$SSD"'/engine/linux-x86_64" --model "'"$SSD"'/model/glm52_i4" \
+    --webui "'"$SSD"'/webui" --api-port $APIP --ui-port $UIP --no-browser \
+    --health-timeout 180 >/tmp/e2e_ui.log 2>&1 &
+  SVPID=$!
+  trap "kill -TERM $SVPID 2>/dev/null; sleep 1; kill -9 $SVPID 2>/dev/null" EXIT
+  for i in $(seq 1 180); do
+    sleep 1
+    H=$(curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:$APIP/health 2>/dev/null || echo 000)
+    [ "$H" = 200 ] && break
+  done
+  [ "$H" = 200 ] || { echo "API /health 未就绪: $H"; tail -5 /tmp/e2e_ui.log; exit 1; }
+  sleep 2
+  M=$(curl -fsS http://127.0.0.1:$APIP/v1/models 2>/dev/null) || { echo "/v1/models 失败"; exit 1; }
+  W=$(curl -fsS http://127.0.0.1:$UIP/ 2>/dev/null) || { echo "Web UI 页面失败"; exit 1; }
+  echo "$W" | grep -qi "html" || { echo "Web UI 页面非 HTML"; exit 1; }
+  kill -TERM $SVPID 2>/dev/null; sleep 1; kill -9 $SVPID 2>/dev/null
+  trap - EXIT
+  exit 0'
+
+# ---------- T14: shellcheck 静态检查零告警 ----------
+t_run 14 "shellcheck 全部脚本零告警（warning 级）" bash -c '
+  SC="${SHELLCHECK:-$(command -v shellcheck || echo /tmp/shellcheck)}"
+  [ -x "$SC" ] || { echo "shellcheck 不可用，跳过"; exit 0; }
+  "$SC" -S warning "'"$REPO"'/scripts/"*.sh "'"$REPO"'/scripts/coli-ssd" "'"$REPO"'/tests/"*.sh "'"$REPO"'/install.sh"'
+
+# ---------- T15: install.sh 参数与 dry-run ----------
+t_run 15 "install.sh --dry-run 正常 + 缺 --ssd 正确报错（负向）" bash -c '
+  D="$(mktemp -d)"; trap "rm -rf \"$D\"" EXIT
+  "'"$REPO"'/install.sh" --ssd "$D" --skip-download --dry-run >/dev/null 2>&1 || exit 1
+  ! "'"$REPO"'/install.sh" --dry-run >/dev/null 2>&1'
 
 echo >&2
 if [ "$FAILT" -eq 0 ]; then

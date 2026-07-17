@@ -10,32 +10,26 @@
 
 ## 快速开始
 
-### 一、制作这块 SSD（一次性，需要网络和 gcc）
+### 一、制作这块 SSD（一次性，一条命令）
 
 ```bash
 git clone https://github.com/DannyFish-11/colibri-portable-ssd
 cd colibri-portable-ssd
-
-# 1. 构建引擎并装配 SSD 目录树（linux-x86_64 / darwin-arm64 自动识别）
-scripts/coli-ssd build --ssd /mnt/myssd
-
-# 2. 下载模型（约 370GB，断点续传，中断重跑同一命令即可）
-scripts/coli-ssd download --ssd /mnt/myssd
-
-# 3. 总检：引擎 + 模型完整性 + MTP 头 + 实测盘速
-scripts/coli-ssd doctor --ssd /mnt/myssd
+./install.sh --ssd /mnt/myssd          # 引擎 + 浏览器界面 + 370GB 模型 + 总检，全自动
 ```
 
-### 二、日常使用（插到任何电脑）
+`--skip-download` 可跳过模型下载以后补；`--dry-run` 只看计划。制作机需要 gcc + python3，装浏览器界面需要 node/npm（没有会自动跳过，不影响命令行）。
+
+### 二、日常使用（插到任何电脑，三种姿势任选）
 
 ```bash
-/mnt/myssd/start.sh                # 交互聊天
-/mnt/myssd/start.sh run "提示词"    # 单次生成
-/mnt/myssd/start.sh serve          # OpenAI 兼容 API
-/mnt/myssd/start.sh --readonly     # 纯只读模式：全程不向 SSD 写任何状态
+/mnt/myssd/start.sh                    # ① 命令行：交互聊天
+/mnt/myssd/start.sh ui                 # ② 浏览器界面：API + Web UI + 自动开浏览器
+python3 /mnt/myssd/gui/colibri_ssd.py  # ③ 图形启动器：状态面板 + 一键按钮（零依赖）
 ```
 
-Windows 11：双击 `start.bat`（需预装 Python 3.10+）。用完正常退出，再安全弹出。
+Windows 11：双击 `start.bat` 或 `gui/colibri_ssd.py`（需预装 Python 3.10+）。
+进阶：`start.sh run "提示词"` 单次生成；`start.sh serve` OpenAI 兼容 API；`start.sh --readonly` 纯只读模式（全程不写 SSD）。用完正常退出，再安全弹出。
 
 ---
 
@@ -66,6 +60,8 @@ Windows 11：双击 `start.bat`（需预装 Python 3.10+）。用完正常退出
 ```
 <SSD>/
 ├── start.sh / start.bat        # 即插即用启动器（自定位路径，与 cwd 无关）
+├── gui/colibri_ssd.py          # 图形启动器（tkinter 零依赖：状态面板 + 一键按钮）
+├── webui/                      # 预构建浏览器界面（静态文件，start.sh ui 一键拉起）
 ├── README-FIRST.txt
 ├── model/glm52_i4/             # 370GB int4 模型（只读分片 + config + tokenizer）
 │   ├── out-00001.safetensors … #   只读，引擎 pread
@@ -77,15 +73,17 @@ Windows 11：双击 `start.bat`（需预装 Python 3.10+）。用完正常退出
 │   ├── darwin-arm64/
 │   └── windows-x86_64/
 ├── bin/iobench                 # 盘速实测工具（复现引擎的 19MB 并行随机读）
-└── scripts/                    # lib.sh / verify_model.sh / iobench_check.sh
+└── scripts/                    # lib.sh / verify_model.sh / iobench_check.sh / serve_ui.py
 ```
 
 ## 仓库命令
 
 | 命令 | 作用 |
 |---|---|
+| `install.sh --ssd <路径>` | **一键制作总入口**（build + webui + download + doctor） |
 | `coli-ssd build --ssd <路径>` | 克隆上游锁定 commit（PIN 文件）→ 构建 → 装配 SSD（含 tarball 网络兜底） |
 | `coli-ssd download --ssd <路径>` | HF 下载 370GB 模型，断点续传，下完自动校验 |
+| `coli-ssd webui --ssd <路径>` | 预构建浏览器界面（上游 React/Vite UI，静态产物，目标机零 npm 依赖） |
 | `coli-ssd verify --ssd <路径>` | 校验：分片头、总体积、MTP int8 三件套尺寸 |
 | `coli-ssd bench --ssd <路径>` | iobench 实测盘速并按上游基线给出判定 |
 | `coli-ssd doctor --ssd <路径>` | 以上全部，一键总检 |
@@ -118,7 +116,7 @@ Windows 11：双击 `start.bat`（需预装 Python 3.10+）。用完正常退出
 tests/e2e_tiny.sh                 # 端到端套件（~170MB 夹具模型，真实转换+真实推理路径）
 ```
 
-11 项测试覆盖：脚本语法、双路径装配（本地源码 / 网络 PIN 克隆）、带空格路径的真实推理、只读模式零写入、模型校验正/负向、盘速判定、错误提示质量。结果见 [docs/TESTING.md](docs/TESTING.md)。
+15 项测试覆盖：脚本语法、双路径装配（本地源码 / 网络 PIN 克隆）、带空格路径的真实推理、只读模式零写入、模型校验正/负向、盘速判定、GUI 逻辑、浏览器界面冒烟（真实 API + 静态站）、shellcheck 零告警、一键安装器。结果见 [docs/TESTING.md](docs/TESTING.md)。
 
 ## 许可
 
