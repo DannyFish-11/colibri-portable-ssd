@@ -139,14 +139,23 @@ def launch_terminal_cmd(root, args):
         bat = os.path.join(root, "start.bat")
         return ["cmd", "/c", "start", "cmd", "/k", bat] + args
     sh = os.path.join(root, "start.sh")
-    if platform.system() == "Darwin":
-        return ["open", "-a", "Terminal.app", sh] + args
     cmdline = " ".join([f'"{sh}"'] + [f'"{a}"' for a in args]) + "; echo; echo 按回车关闭; read"
+    if platform.system() == "Darwin":
+        # open 会把额外参数当文件打开，必须用 AppleScript 传完整命令行
+        return ["osascript", "-e",
+                f'tell application "Terminal" to do script "{cmdline.replace(chr(34), chr(92)+chr(34))}"']
     for term, flag in (("x-terminal-emulator", "-e"), ("gnome-terminal", "--"),
                        ("konsole", "-e"), ("xfce4-terminal", "-e"), ("xterm", "-e")):
         if shutil.which(term):
             return [term, flag, "bash", "-c", cmdline]
     return None
+
+
+def bash_cmd(root, script, *args):
+    """构造 bash 脚本调用；Windows 无 bash 时返回 None（由调用方友好提示）。"""
+    if platform.system() == "Windows" and not shutil.which("bash"):
+        return None
+    return ["bash", os.path.join(root, "scripts", script)] + list(args)
 
 
 def main():
@@ -215,10 +224,18 @@ def main():
                 "--engine", st["engine"], "--model", st["model_dir"], "--webui", st["webui"]])
 
     def do_bench():
-        run_bg(["bash", os.path.join(root, "scripts", "iobench_check.sh"), "--ssd", root])
+        cmd = bash_cmd(root, "iobench_check.sh", "--ssd", root)
+        if cmd is None:
+            log("此功能需要 bash（Windows 请安装 Git Bash 或用 WSL）；也可手动跑 scripts/iobench_check.sh")
+            return
+        run_bg(cmd)
 
     def do_verify():
-        run_bg(["bash", os.path.join(root, "scripts", "verify_model.sh"), "--model", st["model_dir"]])
+        cmd = bash_cmd(root, "verify_model.sh", "--model", st["model_dir"])
+        if cmd is None:
+            log("此功能需要 bash（Windows 请安装 Git Bash 或用 WSL）；也可手动跑 scripts/verify_model.sh")
+            return
+        run_bg(cmd)
 
     btns = tk.Frame(app); btns.pack(pady=4)
     tk.Button(btns, text="开始聊天", width=12, command=lambda: do_chat(False)).grid(row=0, column=0, padx=4)

@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     --ssd)           SSD="$2"; shift 2 ;;
     --skip-download) SKIP_DL=1; shift ;;
     --dry-run)       DRY=1; shift ;;
-    -h|--help)       sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)       sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "未知参数: $1（--help 查看用法）" ;;
   esac
 done

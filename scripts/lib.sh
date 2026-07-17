@@ -82,7 +82,7 @@ check_ram() {
   if [ -f "$model_dir/.colibri-fixture" ] && [ -z "${COLI_MIN_RAM_GB:-}" ]; then
     min=1   # 测试夹具模型只有 ~170MB，放宽门槛
   fi
-  have="$(avail_ram_gb)"
+  have="$(avail_ram_gb)"; have="${have:-0}"
   [ "$have" -ge "$min" ] && return 0
   if [ "$min" -le 1 ]; then return 0; fi
   die "可用内存约 ${have}GB，低于门槛 ${min}GB。

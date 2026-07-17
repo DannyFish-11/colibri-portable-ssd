@@ -26,7 +26,9 @@ DEST="$SSD/model/glm52_i4"
 
 # ---------- 磁盘空间预检 ----------
 need_cmd df; need_cmd python3 "请安装 Python 3.10+"
-AVAIL_KB=$(df -k "$SSD" | awk 'NR==2{print $4}')
+# -P: POSIX 单行输出，避免长设备名折行导致字段错位
+AVAIL_KB=$(df -kP "$SSD" | awk 'NR==2{print $4}')
+case "$AVAIL_KB" in ''|*[!0-9]*) die "无法解析 $SSD 的可用空间（df 输出异常）" ;; esac
 AVAIL_GB=$((AVAIL_KB/1048576))
 if [ "$AVAIL_GB" -lt 400 ]; then
   die "$SSD 可用空间约 ${AVAIL_GB}GB，不足 400GB（模型 ~370GB + 余量）。

@@ -18,7 +18,9 @@ HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
 
-[ $# -ge 1 ] || { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+[ $# -ge 1 ] || { usage; exit 1; }
+case "$1" in -h|--help) usage; exit 0 ;; esac
 CMD="$1"; shift
 
 ssd_of() { # 从剩余参数里抠 --ssd

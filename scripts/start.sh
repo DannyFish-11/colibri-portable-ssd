@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
     --readonly|--ro) READONLY=1; shift ;;
     --bench)         DO_BENCH=1; shift ;;
     -h|--help)
-      sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) ARGS+=("$1"); shift ;;
   esac

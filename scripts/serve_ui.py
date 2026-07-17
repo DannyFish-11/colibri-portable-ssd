@@ -83,19 +83,25 @@ def main():
         "--cors-origin", f"http://127.0.0.1:{a.ui_port}",
     ]
     log(f"启动 API: {' '.join(serve_cmd)}")
-    api = subprocess.Popen(serve_cmd, env=env)
+    try:
+        api = subprocess.Popen(serve_cmd, env=env)
+    except OSError as e:
+        log(f"无法启动引擎: {e}（引擎未装配？先跑 coli-ssd build）")
+        return 1
 
-    def cleanup(*_):
-        for pr in (api,):
-            try:
-                pr.terminate()
-            except Exception:
-                pass
+    def cleanup(code=0, *_):
+        try:
+            api.terminate()
+        except Exception:
+            pass
         try:
             api.wait(timeout=10)
         except Exception:
-            api.kill()
-        sys.exit(0)
+            try:
+                api.kill()
+            except Exception:
+                pass
+        sys.exit(code)
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
@@ -103,8 +109,7 @@ def main():
     log(f"等待模型加载（首次 ~30s 起，大模型更久，超时 {a.health_timeout:.0f}s）……")
     if not wait_health(a.api_port, a.health_timeout, api):
         log("API 未就绪或进程已退出")
-        cleanup()
-        return 1
+        cleanup(1)
     log(f"API 就绪: http://127.0.0.1:{a.api_port}/v1")
 
     import functools
@@ -118,7 +123,7 @@ def main():
             httpd.serve_forever()
         except KeyboardInterrupt:
             pass
-    cleanup()
+    cleanup(0)
     return 0
 
 
