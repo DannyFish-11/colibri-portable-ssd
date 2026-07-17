@@ -3,6 +3,25 @@
 测试时间：2026-07-17（UTC）。测试机：Linux x86_64 沙箱（gcc 12.2，2 核，4GB RAM，node 20）。
 上游引擎：colibri @ `72d3d37`（2026-07-16，见仓库根 `PIN`）。
 
+## 第三轮：深度 code review 排查（2026-07-17）— 8 个 bug 修复，17/17 通过
+
+逐文件人工 review 发现并已修复：
+
+| # | 文件 | Bug | 后果 | 修复 |
+|---|---|---|---|---|
+| 1 | serve_ui.py | 健康检查失败时 `cleanup()` 固定 `exit(0)` | **失败被伪装成成功**，脚本判错失效 | `cleanup(code)` 参数化；新增 T17 回归 |
+| 2 | start.sh | `--help` sed 范围多一行 | help 末尾混入 `set -euo pipefail` | `2,15p`→`2,13p`；新增 T16 回归 |
+| 3 | scripts/coli-ssd | 同上 | 同上 | `2,16p`→`2,14p`，并补 `--help` 支持 |
+| 4 | install.sh | 同上 | 同上 | `2,12p`→`2,10p` |
+| 5 | download_model.sh | `df -k` 长设备名折行 | 可用空间解析错位 → 误判空间 | `df -kP` + 数字守卫 |
+| 6 | gui/colibri_ssd.py | macOS `open` 把参数当文件打开 | macOS 聊天按钮失效 | 改 `osascript do script` |
+| 7 | gui/colibri_ssd.py | Windows 无 bash 时测速/校验按钮报错丑陋 | 体验差 | `bash_cmd()` 检测 + 友好提示 |
+| 8 | serve_ui.py / lib.sh | 引擎缺失抛裸 traceback；`avail_ram_gb` 失败时空值比较崩溃 | 健壮性 | try/except 干净报错；`have="${have:-0}"` |
+
+测试套件自身也修了 1 个 bug：T17 的 `pkill -f "coli serve"` 会匹配测试脚本自身命令行导致自杀（空日志 FAIL）→ 改用 `col[i]` 括号技巧。
+
+新增回归测试：T16（三个入口脚本 `--help` 输出纯净）、T17（serve_ui 引擎缺失/健康超时退出码均为 1）。
+
 ## v2 易用性套件（2026-07-17 第二轮）— 15/15 通过
 
 新增"足够简单易用"的四件套全部实测：
@@ -53,11 +72,12 @@
 - 网络路径双通道（git / codeload tarball）获取锁定 commit
 - 浏览器界面全链路（API /health + /v1/models + 静态站页面）
 - shellcheck v0.10.0 静态检查零告警
+- `--help` 输出纯净度、serve_ui 失败路径退出码（T16/T17 回归）
 
 未能在本环境验证（需要你的硬件）：
 - 真实 370GB 模型（本沙箱磁盘/RAM 不足）——但下载器是 huggingface_hub 官方 `snapshot_download`（断点续传为其内建行为），校验器已按上游公开的分片头格式与 MTP 尺寸表实现
 - Windows `start.bat` 的运行时行为（静态审查通过；逻辑与 bash 版同构）
-- macOS / Apple Silicon 构建（脚本按 darwin-arm64 设计，未实测）
+- macOS / Apple Silicon 构建与 osascript 终端拉起（按 Apple 官方机制实现，未实测）
 - 真实 USB4/雷电硬盘盒的速度与热表现
 - tkinter GUI 的窗口渲染（逻辑已做无头测试；窗口行为请在真机上过目一眼）
 

@@ -16,6 +16,8 @@
 #  10. start.sh ui 冒烟（真实 API + 静态站）
 #  11. shellcheck 零告警
 #  12. install.sh 参数与 dry-run
+#  13. --help 输出不混入代码行（start.sh / coli-ssd / install.sh 回归）
+#  14. serve_ui 退出码：引擎缺失=干净报错 1；健康检查超时=1（不得伪装成 0）
 
 set -uo pipefail
 HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -179,6 +181,34 @@ t_run 15 "install.sh --dry-run 正常 + 缺 --ssd 正确报错（负向）" bash
   D="$(mktemp -d)"; trap "rm -rf \"$D\"" EXIT
   "'"$REPO"'/install.sh" --ssd "$D" --skip-download --dry-run >/dev/null 2>&1 || exit 1
   ! "'"$REPO"'/install.sh" --dry-run >/dev/null 2>&1'
+
+# ---------- T16: --help 输出回归（不得混入代码行） ----------
+t_run 16 "--help 输出纯净且含用法关键词（start.sh/coli-ssd/install.sh）" bash -c '
+  for f in "'"$REPO"'/scripts/start.sh" "'"$REPO"'/scripts/coli-ssd" "'"$REPO"'/install.sh"; do
+    OUT=$("$f" --help 2>&1 || true)
+    # coli-ssd 无参时也打印用法
+    [ "$f" = "'"$REPO"'/scripts/coli-ssd" ] && OUT=$("$f" 2>&1 || true)
+    echo "$OUT" | grep -q "set -euo pipefail" && { echo "$f: help 混入代码行"; exit 1; }
+    echo "$OUT" | grep -qE "ssd|start" || { echo "$f: help 缺用法内容"; exit 1; }
+  done'
+
+# ---------- T17: serve_ui 退出码（BUG-1 回归） ----------
+t_run 17 "serve_ui：引擎缺失=干净退出 1；健康检查超时=退出 1（不得为 0）" bash -c '
+  S="'"$SSD"'/scripts/serve_ui.py"
+  E="'"$SSD"'/engine/linux-x86_64"
+  M="'"$SSD"'/model/glm52_i4"
+  W="'"$SSD"'/webui"
+  # (a) 引擎路径不存在 → 退出 1 且无 Traceback
+  OUT=$(python3 "$S" --engine /nonexistent --model "$M" --webui "$W" --no-browser 2>&1); RC=$?
+  [ $RC -eq 1 ] || { echo "引擎缺失时退出码 $RC != 1"; exit 1; }
+  echo "$OUT" | grep -q Traceback && { echo "引擎缺失时抛裸 traceback"; exit 1; }
+  # (b) 真实引擎但健康检查超时 0.2s → 必须退出 1（修复前为 0）
+  python3 "$S" --engine "$E" --model "$M" --webui "$W" --api-port 18241 --ui-port 18242 \
+    --no-browser --health-timeout 0.2 >/dev/null 2>&1; RC=$?
+  # 括号技巧：防止 pkill 的模式匹配到本脚本自身（自杀）
+  pkill -f "col[i] serve" 2>/dev/null || true
+  [ $RC -eq 1 ] || { echo "健康检查超时时退出码 $RC != 1（BUG-1 回归）"; exit 1; }
+  exit 0'
 
 echo >&2
 if [ "$FAILT" -eq 0 ]; then

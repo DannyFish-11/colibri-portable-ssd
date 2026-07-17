@@ -116,7 +116,7 @@ Windows 11：双击 `start.bat` 或 `gui/colibri_ssd.py`（需预装 Python 3.10
 tests/e2e_tiny.sh                 # 端到端套件（~170MB 夹具模型，真实转换+真实推理路径）
 ```
 
-15 项测试覆盖：脚本语法、双路径装配（本地源码 / 网络 PIN 克隆）、带空格路径的真实推理、只读模式零写入、模型校验正/负向、盘速判定、GUI 逻辑、浏览器界面冒烟（真实 API + 静态站）、shellcheck 零告警、一键安装器。结果见 [docs/TESTING.md](docs/TESTING.md)。
+17 项测试覆盖：脚本语法、双路径装配（本地源码 / 网络 PIN 克隆）、带空格路径的真实推理、只读模式零写入、模型校验正/负向、盘速判定、GUI 逻辑、浏览器界面冒烟（真实 API + 静态站）、shellcheck 零告警、一键安装器、help 输出纯净度、服务退出码。结果见 [docs/TESTING.md](docs/TESTING.md)。
 
 ## 许可
 
